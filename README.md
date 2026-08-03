@@ -164,6 +164,7 @@ var msg = "<%- escapeJs(respParam.outRsltMsg) %>";
 - **READ_TIMEOUT**: 헥토파이낸셜 API 통신 수신 타임아웃입니다.
 - **PORT**: 샘플 서버 포트입니다. 환경변수 `PORT`로 변경할 수 있습니다.
 - **SERVICE_BASE_URL**: 결제창에 전달하는 `notiUrl`/`nextUrl`/`cancUrl`의 앞부분입니다. 헥토파이낸셜 서버가 호출할 수 있는 주소여야 하므로, 노티 수신 테스트 시에는 외부에서 접근 가능한 도메인으로 변경하십시오. 환경변수 `SERVICE_BASE_URL`로 지정할 수 있습니다.
+- **TRUST_PROXY**: 리버스 프록시(Nginx/ALB 등) 뒤에서 서비스할 때 고객 IP(`custIp`)를 얻기 위한 설정입니다. Express의 `trust proxy`와 동일한 형식으로, 바로 앞 프록시 1대만 신뢰하면 `1`, 특정 대역만 신뢰하면 `'10.0.0.0/8'`을 지정합니다. 기본값은 `false`입니다. `X-Forwarded-For`는 클라이언트가 위조할 수 있으므로, 프록시가 없는 환경에서 켜면 고객이 `custIp`를 임의로 조작할 수 있습니다. 실제 배치 구성에 맞는 값만 지정하십시오.
 - **LOG_DIR**: 로그 파일 저장 경로입니다. 환경변수 `LOG_DIR`로 변경할 수 있습니다.
 
 ## 노티 수신 엔드포인트
