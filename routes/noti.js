@@ -12,10 +12,17 @@ const router = express.Router();
 /**
  * 노티 수신 파라미터를 원본 그대로 얻습니다.
  * 해시 검증은 수신한 값 그대로를 대상으로 해야 하므로 별도의 가공을 하지 않습니다.
+ *
+ * 같은 이름의 필드가 여러 번 전달되면 첫 번째 값을 사용합니다.
+ * 값들을 합치면 해시 대상 평문이 달라져 정상 노티가 검증에 실패하게 됩니다.
  */
 function notiParam(req, name) {
     const body = req.body || {};
-    const value = Object.prototype.hasOwnProperty.call(body, name) ? body[name] : req.query[name];
+    let value = Object.prototype.hasOwnProperty.call(body, name) ? body[name] : req.query[name];
+
+    if (Array.isArray(value)) {
+        value = value[0];
+    }
     return (value === null || value === undefined) ? '' : String(value);
 }
 
