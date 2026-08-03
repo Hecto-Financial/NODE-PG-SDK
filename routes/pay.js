@@ -4,8 +4,7 @@ const express = require('express');
 
 const config = require('../config');
 const EncryptUtil = require('../lib/encrypt-util');
-const HttpClientUtil = require('../lib/http-client');
-const { param, parseResponse, encryptParams, decryptParams, clientIp } = require('../lib/api-util');
+const { param, setHash, callApi, decryptParams, clientIp } = require('../lib/api-util');
 const { getLogger } = require('../lib/logger');
 
 const router = express.Router();
@@ -232,22 +231,6 @@ router.post('/pay_autoPayResult', async (req, res) => {
         billKey: param(req, 'billKey')          //자동결제키
     };
 
-    //응답 파라미터(헤더)
-    const RES_HEADER = [
-        'mchtId',       //상점아이디
-        'ver',          //버전
-        'method',       //결제수단
-        'bizType',      //업무구분
-        'encCd',        //암호화구분
-        'mchtTrdNo',    //상점주문번호
-        'trdNo',        //헥토파이낸셜거래번호
-        'trdDt',        //요청일자
-        'trdTm',        //요청시간
-        'outStatCd',    //결과코드
-        'outRsltCd',    //거절코드
-        'outRsltMsg'    //결과메세지
-    ];
-
     //응답 파라미터(바디)
     const RES_BODY = [
         'pktHash',      //해쉬값
@@ -266,44 +249,23 @@ router.post('/pay_autoPayResult', async (req, res) => {
      *                          SHA256 해쉬 처리
      *          조합필드 : 요청일자 + 요청시간 + 상점아이디 + 상점주문번호 + 거래금액 + 라이센스키
      *  ====================================================================================================================== */
-    let hashPlain = '';
-    let hashCipher = '';
-    try {
-        hashPlain = REQ_HEADER.trdDt + REQ_HEADER.trdTm + REQ_HEADER.mchtId + REQ_HEADER.mchtTrdNo + REQ_BODY.trdAmt + licenseKey;
-        hashCipher = EncryptUtil.digestSHA256(hashPlain);
-    } catch (e) {
-        logger.error('[' + REQ_HEADER.mchtTrdNo + '][SHA256 HASHING] Hashing Fail! : ' + e.toString());
-    } finally {
-        //[주의] hashPlain에는 라이센스키가 평문으로 포함됩니다. 운영 적용 시 이 로그를 제거하거나 키 부분을 마스킹하십시오.
-        logger.info('[' + REQ_HEADER.mchtTrdNo + '][SHA256 HASHING] Plain Text[' + hashPlain + '] ---> Cipher Text[' + hashCipher + ']');
-        REQ_BODY.pktHash = hashCipher; //해쉬 결과 값 세팅
-    }
+    setHash(REQ_BODY, REQ_HEADER.trdDt + REQ_HEADER.trdTm + REQ_HEADER.mchtId + REQ_HEADER.mchtTrdNo + REQ_BODY.trdAmt + licenseKey,
+        REQ_HEADER.mchtTrdNo, logger);
 
     /* ======================================================================
-     *                              AES256 암호화 처리
+     *      암호화 -> API호출(가맹점->헥토파이낸셜) -> 응답 파싱 -> 복호화
      *  ====================================================================== */
-    encryptParams(REQ_BODY, ENCRYPT_PARAMS, aesKey, REQ_HEADER.mchtTrdNo);
-
-    //URL설정
-    const requestUrl = apiHost + '/spay/APIService.do'; //휴대폰 자동연장 결제 URL
-
-    //요청파라미터 세팅
-    //params, data 이름은 헥토파이낸셜로 전달되어야 하는 값이니 변경하지 마십시오.
-    const reqParam = { params: REQ_HEADER, data: REQ_BODY };
-
-    /* ======================================================================
-     *                          API호출(가맹점->헥토파이낸셜) 및 응답 처리
-     *  ====================================================================== */
-    //sendApi ( API호출 URL, 전송될데이터, 연결 타임아웃, 수신 타임아웃 )
-    const resData = await HttpClientUtil.sendApi(requestUrl, reqParam, connTimeout, readTimeout);
-
-    //응답 파라미터 파싱
-    const respParam = parseResponse(resData, RES_HEADER, RES_BODY, REQ_HEADER.mchtTrdNo);
-
-    /* ======================================================================
-     *                          AES256 복호화 처리
-     *  ====================================================================== */
-    decryptParams(respParam, DECRYPT_PARAMS, aesKey, REQ_HEADER.mchtTrdNo);
+    const respParam = await callApi({
+        header: REQ_HEADER,
+        body: REQ_BODY,
+        requestUrl: apiHost + '/spay/APIService.do', //휴대폰 자동연장 결제 URL
+        aesKey: aesKey,
+        encryptKeys: ENCRYPT_PARAMS,
+        decryptKeys: DECRYPT_PARAMS,
+        resBodyKeys: RES_BODY,
+        connTimeout: connTimeout,
+        readTimeout: readTimeout
+    });
 
     res.render('pay_autoPayResult', { respParam: respParam });
 });
@@ -344,22 +306,6 @@ router.post('/pay_subsPayResult', async (req, res) => {
         prdtNm: param(req, 'prdtNm')            //결제상품명
     };
 
-    //응답 파라미터(헤더)
-    const RES_HEADER = [
-        'mchtId',       //상점아이디
-        'ver',          //버전
-        'method',       //결제수단
-        'bizType',      //업무구분
-        'encCd',        //암호화구분
-        'mchtTrdNo',    //상점주문번호
-        'trdNo',        //헥토파이낸셜거래번호
-        'trdDt',        //요청일자
-        'trdTm',        //요청시간
-        'outStatCd',    //결과코드
-        'outRsltCd',    //거절코드
-        'outRsltMsg'    //결과메세지
-    ];
-
     //응답 파라미터(바디)
     const RES_BODY = [
         'pktHash',      //해쉬값
@@ -378,45 +324,23 @@ router.post('/pay_subsPayResult', async (req, res) => {
      *                          SHA256 해쉬 처리
      *          조합필드 : 요청일자 + 요청시간 + 상점아이디 + 상점주문번호 + 거래금액 + 라이센스키
      *  ====================================================================================================================== */
-    let hashPlain = '';
-    let hashCipher = '';
-    try {
-        hashPlain = REQ_HEADER.trdDt + REQ_HEADER.trdTm + REQ_HEADER.mchtId + REQ_HEADER.mchtTrdNo + REQ_BODY.trdAmtEnc + licenseKey;
-        hashCipher = EncryptUtil.digestSHA256(hashPlain);
-    } catch (e) {
-        logger.error('[' + REQ_HEADER.mchtTrdNo + '][SHA256 HASHING] Hashing Fail! : ' + e.toString());
-    } finally {
-        //[주의] hashPlain에는 라이센스키가 평문으로 포함됩니다. 운영 적용 시 이 로그를 제거하거나 키 부분을 마스킹하십시오.
-        logger.info('[' + REQ_HEADER.mchtTrdNo + '][SHA256 HASHING] Plain Text[' + hashPlain + '] ---> Cipher Text[' + hashCipher + ']');
-        REQ_BODY.pktHash = hashCipher; //해쉬 결과 값 세팅
-    }
+    setHash(REQ_BODY, REQ_HEADER.trdDt + REQ_HEADER.trdTm + REQ_HEADER.mchtId + REQ_HEADER.mchtTrdNo + REQ_BODY.trdAmtEnc + licenseKey,
+        REQ_HEADER.mchtTrdNo, logger);
 
     /* ======================================================================
-     *                              AES256 암호화 처리
+     *      암호화 -> API호출(가맹점->헥토파이낸셜) -> 응답 파싱 -> 복호화
      *  ====================================================================== */
-    encryptParams(REQ_BODY, ENCRYPT_PARAMS, aesKey, REQ_HEADER.mchtTrdNo);
-
-    //URL설정
-    const requestUrl = apiHost + '/spay/APIPZSubsTrd.do'; //간편 정기결제 URL
-
-    //요청파라미터 세팅
-    //params, data 이름은 헥토파이낸셜로 전달되어야 하는 값이니 변경하지 마십시오.
-    const reqParam = { params: REQ_HEADER, data: REQ_BODY };
-
-    /* ======================================================================
-     *                          API호출(가맹점->헥토파이낸셜) 및 응답 처리
-     *      간편 정기결제 API는 노티 전문이 없으므로 응답 전문으로 결과를 확인합니다.
-     *  ====================================================================== */
-    //sendApi ( API호출 URL, 전송될데이터, 연결 타임아웃, 수신 타임아웃 )
-    const resData = await HttpClientUtil.sendApi(requestUrl, reqParam, connTimeout, readTimeout);
-
-    //응답 파라미터 파싱
-    const respParam = parseResponse(resData, RES_HEADER, RES_BODY, REQ_HEADER.mchtTrdNo);
-
-    /* ======================================================================
-     *                          AES256 복호화 처리
-     *  ====================================================================== */
-    decryptParams(respParam, DECRYPT_PARAMS, aesKey, REQ_HEADER.mchtTrdNo);
+    const respParam = await callApi({
+        header: REQ_HEADER,
+        body: REQ_BODY,
+        requestUrl: apiHost + '/spay/APIPZSubsTrd.do', //간편 정기결제 URL
+        aesKey: aesKey,
+        encryptKeys: ENCRYPT_PARAMS,
+        decryptKeys: DECRYPT_PARAMS,
+        resBodyKeys: RES_BODY,
+        connTimeout: connTimeout,
+        readTimeout: readTimeout
+    });
 
     res.render('pay_subsPayResult', { respParam: respParam });
 });
@@ -457,22 +381,6 @@ router.post('/pay_subsManageResult', async (req, res) => {
     const apiPath = bizType === 'S1' ? '/spay/APIPZSubsStatus.do' : '/spay/APIPZSubsDelKey.do';
     const jobName = bizType === 'S1' ? '빌키 상태조회' : '빌키 삭제';
 
-    //응답 파라미터(헤더)
-    const RES_HEADER = [
-        'mchtId',       //상점아이디
-        'ver',          //버전
-        'method',       //결제수단
-        'bizType',      //업무구분
-        'encCd',        //암호화구분
-        'mchtTrdNo',    //상점주문번호
-        'trdNo',        //헥토파이낸셜거래번호
-        'trdDt',        //요청일자
-        'trdTm',        //요청시간
-        'outStatCd',    //결과코드
-        'outRsltCd',    //거절코드
-        'outRsltMsg'    //결과메세지
-    ];
-
     //응답 파라미터(바디)
     const RES_BODY = ['pktHash']; //해쉬값
 
@@ -480,35 +388,23 @@ router.post('/pay_subsManageResult', async (req, res) => {
      *                          SHA256 해쉬 처리
      *          조합필드 : 요청일자 + 요청시간 + 상점아이디 + 상점주문번호 + 라이센스키
      *  ====================================================================================================================== */
-    let hashPlain = '';
-    let hashCipher = '';
-    try {
-        hashPlain = REQ_HEADER.trdDt + REQ_HEADER.trdTm + REQ_HEADER.mchtId + REQ_HEADER.mchtTrdNo + licenseKey;
-        hashCipher = EncryptUtil.digestSHA256(hashPlain);
-    } catch (e) {
-        logger.error('[' + REQ_HEADER.mchtTrdNo + '][SHA256 HASHING] Hashing Fail! : ' + e.toString());
-    } finally {
-        //[주의] hashPlain에는 라이센스키가 평문으로 포함됩니다. 운영 적용 시 이 로그를 제거하거나 키 부분을 마스킹하십시오.
-        logger.info('[' + REQ_HEADER.mchtTrdNo + '][SHA256 HASHING] Plain Text[' + hashPlain + '] ---> Cipher Text[' + hashCipher + ']');
-        REQ_BODY.pktHash = hashCipher; //해쉬 결과 값 세팅
-    }
-
-    //URL설정
-    const requestUrl = apiHost + apiPath; //간편 정기결제 빌키 상태조회/삭제 URL
-
-    //요청파라미터 세팅
-    //params, data 이름은 헥토파이낸셜로 전달되어야 하는 값이니 변경하지 마십시오.
-    const reqParam = { params: REQ_HEADER, data: REQ_BODY };
+    setHash(REQ_BODY, REQ_HEADER.trdDt + REQ_HEADER.trdTm + REQ_HEADER.mchtId + REQ_HEADER.mchtTrdNo + licenseKey,
+        REQ_HEADER.mchtTrdNo, logger);
 
     /* ======================================================================
-     *                          API호출(가맹점->헥토파이낸셜) 및 응답 처리
+     *      API호출(가맹점->헥토파이낸셜) 및 응답 처리
      *      간편 정기결제 상태조회/키삭제 API는 노티 전문이 없으므로 응답 전문으로 결과를 확인합니다.
+     *      암복호화 대상 항목이 없어 encryptKeys/decryptKeys는 지정하지 않습니다.
      *  ====================================================================== */
-    //sendApi ( API호출 URL, 전송될데이터, 연결 타임아웃, 수신 타임아웃 )
-    const resData = await HttpClientUtil.sendApi(requestUrl, reqParam, connTimeout, readTimeout);
-
-    //응답 파라미터 파싱
-    const respParam = parseResponse(resData, RES_HEADER, RES_BODY, REQ_HEADER.mchtTrdNo);
+    const respParam = await callApi({
+        header: REQ_HEADER,
+        body: REQ_BODY,
+        requestUrl: apiHost + apiPath, //간편 정기결제 빌키 상태조회/삭제 URL
+        aesKey: config.AES256_KEY,
+        resBodyKeys: RES_BODY,
+        connTimeout: connTimeout,
+        readTimeout: readTimeout
+    });
 
     res.render('pay_subsManageResult', { respParam: respParam, jobName: jobName });
 });
