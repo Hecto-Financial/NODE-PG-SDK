@@ -5,7 +5,7 @@ const express = require('express');
 const config = require('../config');
 const EncryptUtil = require('../lib/encrypt-util');
 const HttpClientUtil = require('../lib/http-client');
-const { param, parseResponse, encryptParams, decryptParams } = require('../lib/api-util');
+const { param, parseResponse, encryptParams, decryptParams, clientIp } = require('../lib/api-util');
 const { getLogger } = require('../lib/logger');
 
 const router = express.Router();
@@ -24,7 +24,7 @@ router.get('/pay_form', (req, res) => {
         PAYMENT_SERVER: config.PAYMENT_SERVER,
         CANCEL_SERVER: config.CANCEL_SERVER,
         SERVICE_BASE_URL: config.SERVICE_BASE_URL,
-        remoteAddr: req.ip //고객 IP
+        remoteAddr: clientIp(req) //고객 IP
     });
 });
 
