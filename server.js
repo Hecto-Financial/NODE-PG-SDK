@@ -14,6 +14,14 @@ const notiRouter = require('./routes/noti');
 const logger = getLogger('trans');
 const app = express();
 
+/**
+ * 리버스 프록시 뒤에서 고객 IP(custIp)를 얻기 위한 설정입니다.
+ * 실제 프록시 구성에 맞는 값을 config.js의 TRUST_PROXY에 지정하십시오.
+ */
+if (config.TRUST_PROXY) {
+    app.set('trust proxy', config.TRUST_PROXY);
+}
+
 /** 뷰 엔진 설정(EJS). `<%= value %>` 출력은 HTML 이스케이프가 자동 적용됩니다. */
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));

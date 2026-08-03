@@ -79,6 +79,39 @@ const PORT = Number(process.env.PORT) || 8080;
 */
 const SERVICE_BASE_URL = process.env.SERVICE_BASE_URL || `http://localhost:${PORT}`;
 
+/**
+    ===== 리버스 프록시 신뢰 설정 =====
+    Nginx/ALB 등 프록시 뒤에서 서비스하는 경우, 고객 IP(custIp)를 얻으려면
+    X-Forwarded-For 헤더를 신뢰하도록 설정해야 합니다.
+    Express의 trust proxy 값과 동일한 형식을 사용합니다.
+        false        : 프록시 없음(기본). req.socket의 접속 주소를 그대로 사용합니다.
+        1            : 바로 앞 프록시 1대만 신뢰
+        '10.0.0.0/8' : 특정 대역만 신뢰
+
+    [주의] X-Forwarded-For는 클라이언트가 위조할 수 있습니다.
+    프록시가 없는데 true로 설정하면 고객이 custIp를 임의로 조작할 수 있으므로,
+    실제 배치된 프록시 구성에 맞는 값만 지정하십시오.
+*/
+function parseTrustProxy(value) {
+    if (value === undefined || value === '') {
+        return false;
+    }
+    if (value === 'true') {
+        return true;
+    }
+    if (value === 'false') {
+        return false;
+    }
+    //숫자는 신뢰할 프록시 단계 수이므로 문자열이 아닌 숫자로 넘겨야 합니다.
+    //(Express는 문자열을 IP·대역 목록으로 해석하기 때문입니다.)
+    if (/^\d+$/.test(value)) {
+        return Number(value);
+    }
+    return value; //IP 또는 대역 목록
+}
+
+const TRUST_PROXY = parseTrustProxy(process.env.TRUST_PROXY);
+
 /** 로그 파일 저장 경로(자사 환경에 맞게 변경) */
 const LOG_DIR = process.env.LOG_DIR || 'logs';
 
@@ -94,5 +127,6 @@ module.exports = {
     READ_TIMEOUT,
     PORT,
     SERVICE_BASE_URL,
+    TRUST_PROXY,
     LOG_DIR
 };
