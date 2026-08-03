@@ -3,9 +3,7 @@
 const express = require('express');
 
 const config = require('../config');
-const EncryptUtil = require('../lib/encrypt-util');
-const HttpClientUtil = require('../lib/http-client');
-const { param, parseResponse, encryptParams, decryptParams } = require('../lib/api-util');
+const { param, setHash, callApi } = require('../lib/api-util');
 const { getLogger } = require('../lib/logger');
 
 const router = express.Router();
@@ -67,22 +65,6 @@ router.post('/cancel_showResult', async (req, res) => {
         refundDpstrNm: param(req, 'refundDpstrNm')      //환불계좌예금주명
     };
 
-    //응답 파라미터(헤더)
-    const RES_HEADER = [
-        'mchtId',       //상점아이디
-        'ver',          //버전
-        'method',       //결제수단
-        'bizType',      //업무구분
-        'encCd',        //암호화구분
-        'mchtTrdNo',    //상점주문번호
-        'trdNo',        //헥토파이낸셜거래번호
-        'trdDt',        //요청일자
-        'trdTm',        //요청시간
-        'outStatCd',    //결과코드
-        'outRsltCd',    //거절코드
-        'outRsltMsg'    //결과메세지
-    ];
-
     //응답 파라미터(바디)
     const RES_BODY = [
         'pktHash',      //해쉬값
@@ -108,27 +90,12 @@ router.post('/cancel_showResult', async (req, res) => {
      *          조합필드 : 요청일자 + 요청시간 + 상점아이디 + 상점주문번호 + 취소금액(평문) + 라이센스키
      *  ================================================================================================================= */
     let hashPlain = '';
-    let hashCipher = '';
-    try {
-        if (REQ_HEADER.method === 'VA' && REQ_HEADER.bizType === 'A2') { //가상계좌/010가상계좌 채번취소 0원으로 설정
-            hashPlain = REQ_HEADER.trdDt + REQ_HEADER.trdTm + REQ_HEADER.mchtId + REQ_HEADER.mchtTrdNo + '0' + licenseKey;
-        } else {
-            hashPlain = REQ_HEADER.trdDt + REQ_HEADER.trdTm + REQ_HEADER.mchtId + REQ_HEADER.mchtTrdNo + REQ_BODY.cnclAmt + licenseKey;
-        }
-
-        hashCipher = EncryptUtil.digestSHA256(hashPlain);
-    } catch (e) {
-        logger.error('[' + REQ_HEADER.mchtTrdNo + '][SHA256 HASHING] Hashing Fail! : ' + e.toString());
-    } finally {
-        //[주의] hashPlain에는 라이센스키가 평문으로 포함됩니다. 운영 적용 시 이 로그를 제거하거나 키 부분을 마스킹하십시오.
-        logger.info('[' + REQ_HEADER.mchtTrdNo + '][SHA256 HASHING] Plain Text[' + hashPlain + '] ---> Cipher Text[' + hashCipher + ']');
-        REQ_BODY.pktHash = hashCipher; //해쉬 결과 값 세팅
+    if (REQ_HEADER.method === 'VA' && REQ_HEADER.bizType === 'A2') { //가상계좌/010가상계좌 채번취소 0원으로 설정
+        hashPlain = REQ_HEADER.trdDt + REQ_HEADER.trdTm + REQ_HEADER.mchtId + REQ_HEADER.mchtTrdNo + '0' + licenseKey;
+    } else {
+        hashPlain = REQ_HEADER.trdDt + REQ_HEADER.trdTm + REQ_HEADER.mchtId + REQ_HEADER.mchtTrdNo + REQ_BODY.cnclAmt + licenseKey;
     }
-
-    /* ======================================================================
-     *                              AES256 암호화 처리
-     *  ====================================================================== */
-    encryptParams(REQ_BODY, ENCRYPT_PARAMS, aesKey, REQ_HEADER.mchtTrdNo);
+    setHash(REQ_BODY, hashPlain, REQ_HEADER.mchtTrdNo, logger);
 
     /* ======================================================================
      *                          타겟 URL 설정
@@ -154,23 +121,20 @@ router.post('/cancel_showResult', async (req, res) => {
         requestUrl = cnclServer + '/spay/APICancel.do';
     }
 
-    //요청파라미터 세팅
-    //params, data 이름은 헥토파이낸셜로 전달되어야 하는 값이니 변경하지 마십시오.
-    const reqParam = { params: REQ_HEADER, data: REQ_BODY };
-
     /* ======================================================================
-     *                          API호출(가맹점->헥토파이낸셜) 및 응답 처리
+     *      암호화 -> API호출(가맹점->헥토파이낸셜) -> 응답 파싱 -> 복호화
      *  ====================================================================== */
-    //sendApi ( API호출 URL, 전송될데이터, 연결 타임아웃, 수신 타임아웃 )
-    const resData = await HttpClientUtil.sendApi(requestUrl, reqParam, connTimeout, readTimeout);
-
-    //응답 파라미터 파싱
-    const respParam = parseResponse(resData, RES_HEADER, RES_BODY, REQ_HEADER.mchtTrdNo);
-
-    /* ======================================================================
-     *                          AES256 복호화 처리
-     *  ====================================================================== */
-    decryptParams(respParam, DECRYPT_PARAMS, aesKey, REQ_HEADER.mchtTrdNo);
+    const respParam = await callApi({
+        header: REQ_HEADER,
+        body: REQ_BODY,
+        requestUrl: requestUrl,
+        aesKey: aesKey,
+        encryptKeys: ENCRYPT_PARAMS,
+        decryptKeys: DECRYPT_PARAMS,
+        resBodyKeys: RES_BODY,
+        connTimeout: connTimeout,
+        readTimeout: readTimeout
+    });
 
     res.render('cancel_showResult', { respParam: respParam });
 });

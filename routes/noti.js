@@ -27,7 +27,7 @@ function notiParam(req, name) {
 }
 
 /** 이 페이지는 수정시 주의가 필요합니다. 응답 본문에 OK/FAIL 이외의 값이 들어가면 동작을 보장할 수 없습니다. */
-router.all('/receiveNoti', (req, res) => {
+router.all('/receiveNoti', async (req, res) => {
     /** 설정 정보 저장 */
     const licenseKey = config.LICENSE_KEY;
 
@@ -144,21 +144,35 @@ router.all('/receiveNoti', (req, res) => {
         그러므로 hash 오류건에 대해서는 오류 발생시 원인을 파악하여 즉시 수정 및 대처해 주셔야 합니다.
         그리고 정상적으로 데이터를 처리한 경우에도 헥토파이낸셜에서 응답을 받지 못한 경우는 결제결과가 중복해서 나갈 수 있으므로 관련한 처리도 고려되어야 합니다
     */
-    if (hashCipher === pktHash) {
-        notiLogger.info('[' + mchtTrdNo + '][SHA256 Hash Check] hashCipher[' + hashCipher + '] pktHash[' + pktHash + '] equals?[TRUE]');
-        if (outStatCd === '0021') {
-            notiLogger.info('[' + mchtTrdNo + '][Success] params:' + StringUtil.join('|', noti));
-            resp = notiSuccess(noti);
-        } else if (outStatCd === '0051') {
-            notiLogger.info('[' + mchtTrdNo + '][Wait For Deposit] params:' + StringUtil.join('|', noti));
-            resp = notiWaitingPay(noti);
+    /*
+        가맹점이 작성한 처리 로직에서 예외가 발생하더라도 응답 본문은 반드시 OK 또는 FAIL이어야
+        합니다. 예외를 그대로 두면 500 응답이 나가 헥토파이낸셜이 재시도 여부를 판단할 수 없으므로,
+        여기서 잡아 FAIL로 응답하여 재시도를 받도록 합니다.
+
+        각 처리 함수는 await로 호출합니다. 동기 함수는 그대로 동작하며, DB 처리 등으로 async
+        함수를 작성하더라도 완료를 기다린 뒤 그 결과로 OK/FAIL을 판단합니다.
+        (await 없이 호출하면 Promise 자체가 참으로 평가되어 실패한 경우에도 OK가 나갑니다.)
+    */
+    try {
+        if (EncryptUtil.secureCompare(hashCipher, pktHash)) {
+            notiLogger.info('[' + mchtTrdNo + '][SHA256 Hash Check] hashCipher[' + hashCipher + '] pktHash[' + pktHash + '] equals?[TRUE]');
+            if (outStatCd === '0021') {
+                notiLogger.info('[' + mchtTrdNo + '][Success] params:' + StringUtil.join('|', noti));
+                resp = await notiSuccess(noti);
+            } else if (outStatCd === '0051') {
+                notiLogger.info('[' + mchtTrdNo + '][Wait For Deposit] params:' + StringUtil.join('|', noti));
+                resp = await notiWaitingPay(noti);
+            } else {
+                notiLogger.info('[' + mchtTrdNo + '][Undefined Code] outStatCd:' + outStatCd);
+                resp = false;
+            }
         } else {
-            notiLogger.info('[' + mchtTrdNo + '][Undefined Code] outStatCd:' + outStatCd);
-            resp = false;
+            notiLogger.info('[' + mchtTrdNo + '][SHA256 Hash Check] hashCipher[' + hashCipher + '] pktHash[' + pktHash + '] equals?[FALSE]');
+            resp = await notiHashError(noti);
         }
-    } else {
-        notiLogger.info('[' + mchtTrdNo + '][SHA256 Hash Check] hashCipher[' + hashCipher + '] pktHash[' + pktHash + '] equals?[FALSE]');
-        resp = notiHashError(noti);
+    } catch (e) {
+        notiLogger.error('[' + mchtTrdNo + '][Noti Process Error]' + e.toString());
+        resp = false;
     }
 
     // OK, FAIL문자열은 헥토파이낸셜로 전송되어야 하는 값이므로 변경하거나 삭제하지마십시오.
