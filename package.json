@@ -2,6 +2,7 @@
   "name": "node-pg-sdk",
   "version": "1.0.0",
   "description": "헥토파이낸셜 PG 연동 Node.js 샘플",
+  "license": "MIT",
   "private": true,
   "main": "server.js",
   "scripts": {
