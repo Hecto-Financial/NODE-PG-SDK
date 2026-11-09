@@ -8,6 +8,7 @@ const config = require('./config');
 const { escapeHtml, escapeJs } = require('./lib/escape-util');
 const { getLogger } = require('./lib/logger');
 const payRouter = require('./routes/pay');
+const billkeyRouter = require('./routes/billkey');
 const cancelRouter = require('./routes/cancel');
 const notiRouter = require('./routes/noti');
 
@@ -39,6 +40,7 @@ app.get('/', (req, res) => {
 });
 
 app.use(payRouter);
+app.use(billkeyRouter);
 app.use(cancelRouter);
 app.use(notiRouter);
 
@@ -51,6 +53,8 @@ app.use((err, req, res, next) => {
 app.listen(config.PORT, () => {
     console.log('헥토파이낸셜 PG 샘플 서버가 실행되었습니다.');
     console.log('  결제 샘플 : ' + config.SERVICE_BASE_URL + '/pay_form');
+    console.log('  0원 등록  : ' + config.SERVICE_BASE_URL + '/cardReg_form');
+    console.log('  빌키 결제 : ' + config.SERVICE_BASE_URL + '/billkey_pay_form');
     console.log('  취소 샘플 : ' + config.SERVICE_BASE_URL + '/cancel_form');
     console.log('  노티 수신 : ' + config.SERVICE_BASE_URL + '/receiveNoti');
 });

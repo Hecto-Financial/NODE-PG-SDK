@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>헥토파이낸셜</title>
+<style type="text/css">
+#STPG_RSLT      {font-family:굴림; font-size:10pt;}
+#STPG_RSLT h4   {background-color:#f1f1f1; padding:4px; margin:2px;}
+#STPG_RSLT td   {padding:3px; border:1px solid #e1e1e1;}
+#STPG_RSLT table{border-collapse:collapse;}
+</style>
+</head>
+<body>
+<h3>빌키 결제 응답 결과</h3>
+<div id="STPG_RSLT">
+    <table>
+        <tr><td colspan="2" style="text-align:center;"><h4>params</h4></td></tr>
+        <tr><td>mchtId[상점아이디]</td><td><%= escapeHtml(respParam.mchtId) %></td></tr>
+        <tr><td>ver[버전]</td><td><%= escapeHtml(respParam.ver) %></td></tr>
+        <tr><td>method[결제수단]</td><td><%= escapeHtml(respParam.method) %></td></tr>
+        <tr><td>bizType[업무구분]</td><td><%= escapeHtml(respParam.bizType) %></td></tr>
+        <tr><td>encCd[암호화구분]</td><td><%= escapeHtml(respParam.encCd) %></td></tr>
+        <tr><td>mchtTrdNo[상점주문번호]</td><td><%= escapeHtml(respParam.mchtTrdNo) %></td></tr>
+        <tr><td>trdNo[헥토파이낸셜 거래번호]</td><td><%= escapeHtml(respParam.trdNo) %></td></tr>
+        <tr><td>trdDt[요청일자]</td><td><%= escapeHtml(respParam.trdDt) %></td></tr>
+        <tr><td>trdTm[요청시간]</td><td><%= escapeHtml(respParam.trdTm) %></td></tr>
+        <tr><td>outStatCd[거래상태코드]</td><td><%= escapeHtml(respParam.outStatCd) %></td></tr>
+        <tr><td>outRsltCd[거래결과코드]</td><td><%= escapeHtml(respParam.outRsltCd) %></td></tr>
+        <tr><td>outRsltMsg[결과메세지]</td><td><%= escapeHtml(respParam.outRsltMsg) %></td></tr>
+        <tr><td colspan="2" style="text-align:center;"><h4>data</h4></td></tr>
+        <tr><td>pktHash[해쉬값]</td><td><%= escapeHtml(respParam.pktHash) %></td></tr>
+        <tr><td>trdAmt[거래금액]</td><td><%= escapeHtml(respParam.trdAmt) %></td></tr>
+        <tr><td>cardNo[카드번호(마스킹)]</td><td><%= escapeHtml(respParam.cardNo) %></td></tr>
+        <tr><td>vldDtYear[유효기간(년)]</td><td><%= escapeHtml(respParam.vldDtYear) %></td></tr>
+        <tr><td>vldDtMon[유효기간(월)]</td><td><%= escapeHtml(respParam.vldDtMon) %></td></tr>
+        <tr><td>issrId[발급사아이디]</td><td><%= escapeHtml(respParam.issrId) %></td></tr>
+        <tr><td>cardNm[카드사명]</td><td><%= escapeHtml(respParam.cardNm) %></td></tr>
+        <tr><td>cardKind[카드종류명]</td><td><%= escapeHtml(respParam.cardKind) %></td></tr>
+        <tr><td>ninstmtTypeCd[무이자할부타입]</td><td><%= escapeHtml(respParam.ninstmtTypeCd) %></td></tr>
+        <tr><td>instmtMon[할부개월수]</td><td><%= escapeHtml(respParam.instmtMon) %></td></tr>
+        <tr><td>apprNo[승인번호]</td><td><%= escapeHtml(respParam.apprNo) %></td></tr>
+        <tr style="background-color:yellow;"><td>billKey[빌키]</td><td><%= escapeHtml(respParam.billKey) %></td></tr>
+        <tr>
+            <td colspan="2" style="text-align:center;">
+                <input type="button" value="돌아가기" style="margin-top:20px;" onclick="location.href='/billkey_pay_form'">
+            </td>
+        </tr>
+    </table>
+</div>
+</body>
+</html>
