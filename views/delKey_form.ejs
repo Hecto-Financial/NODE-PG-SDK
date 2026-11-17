@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>헥토파이낸셜 PG 신용카드 빌키 삭제 샘플</title>
+<style>
+#STPG_delKeyForm, p               {font-family:굴림; font-size:10pt;}
+#STPG_delKeyForm .required::after {content:"* 필수 *"; color:red;}
+#STPG_delKeyForm .fixed::after    {content:"* 고정값 *"; color:red;}
+#STPG_delKeyForm h4               {background-color:#f1f1f1; padding:4px; margin:2px;}
+#STPG_delKeyForm select           {width:287px;}
+#STPG_delKeyForm input            {width:280px;}
+</style>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script type="text/javascript">
+/**
+ * 신용카드 빌키 삭제 API
+ * - 발급받은 빌키를 삭제(해지)합니다. 고객이 정기결제를 해지하면 빌키도 함께 삭제하십시오.
+ * - 호출 경로: /spay/APICardActionDelkey.do (게이트웨이, JSON)
+ * - 업무구분(bizType=A1)은 빌키 삭제 고정값이며, billKey는 평문 전송(암호화 대상 아님)입니다.
+ */
+$(function(){
+    var d = new Date();
+    var year  = d.getFullYear().toString();
+    var month = ("0" + (d.getMonth() + 1)).slice(-2);
+    var day   = ("0" + d.getDate()).slice(-2);
+    var hours = ("0" + d.getHours()).slice(-2);
+    var mins  = ("0" + d.getMinutes()).slice(-2);
+    var secs  = ("0" + d.getSeconds()).slice(-2);
+
+    $('#STPG_delKeyForm [name="trdDt"]').val(year + month + day);
+    $('#STPG_delKeyForm [name="trdTm"]').val(hours + mins + secs);
+    $('#STPG_delKeyForm [name="mchtTrdNo"]').val("BILLKEY_DEL" + year + month + day + hours + mins + secs);
+});
+
+/** 삭제 요청 */
+function doAction(){
+    $('#STPG_delKeyForm').attr("action", "/delKey_Result");
+    $('#STPG_delKeyForm').attr("method", "post");
+    $('#STPG_delKeyForm').attr("target", "_self");
+    $('#STPG_delKeyForm').submit();
+}
+</script>
+</head>
+<body>
+<button onclick="location.href='/cardReg_form'">0원 등록(빌키발급) 샘플로</button>
+<button onclick="location.href='/billkey_pay_form'">빌키 결제 샘플로</button>
+<h3>전자결제(PG) 신용카드 빌키 삭제 API</h3>
+<p>
+<b>신용카드 빌키 삭제 API</b> : 발급받은 빌키를 삭제(해지)하는 API입니다.<br>
+고객이 정기결제를 해지하면 빌키도 함께 삭제해 주십시오.<br>
+</p>
+<form id="STPG_delKeyForm" name="STPG_delKeyForm">
+    <table>
+    <tr><td colspan="2" style="text-align:center;"><h4>params</h4></td></tr>
+
+    <!-- 상점아이디(구인증 nxca_ks_gu / 비인증 nxca_jt_bi, 빌키 발급 시 사용한 MID와 동일) -->
+    <tr class="required">
+        <td>mchtId[상점아이디]</td><td><input type="text" name="mchtId" value="nxca_jt_bi" maxlength="12"/></td>
+    </tr>
+
+    <tr class="fixed">
+        <td>ver[전문버전]</td><td><input type="text" name="ver" value="0A19" maxlength="4" readonly/></td>
+    </tr>
+
+    <!-- 결제수단(신용카드[CA] 고정) -->
+    <tr class="fixed">
+        <td>method[결제수단]</td><td><input type="text" name="method" value="CA" maxlength="2" readonly/></td>
+    </tr>
+
+    <!-- 업무구분(빌키 삭제[A1] 고정) -->
+    <tr class="fixed">
+        <td>bizType[업무구분]</td><td><input type="text" name="bizType" value="A1" maxlength="2" readonly/></td>
+    </tr>
+
+    <tr class="fixed">
+        <td>encCd[암호화구분]</td><td><input type="text" name="encCd" value="23" maxlength="2" readonly/></td>
+    </tr>
+
+    <tr class="required">
+        <td>mchtTrdNo[상점주문번호]</td><td><input type="text" name="mchtTrdNo" value="" maxlength="100"/></td>
+    </tr>
+
+    <tr class="required">
+        <td>trdDt[요청일자]</td><td><input type="text" name="trdDt" value="" maxlength="8"/></td>
+    </tr>
+
+    <tr class="required">
+        <td>trdTm[요청시간]</td><td><input type="text" name="trdTm" value="" maxlength="6"/></td>
+    </tr>
+
+    <tr>
+        <td>mobileYn[모바일여부]</td>
+        <td><select name="mobileYn"><option value="N">PC</option><option value="Y">모바일</option></select></td>
+    </tr>
+
+    <tr>
+        <td>osType[OS구분]</td>
+        <td><select name="osType">
+            <option value="W">Windows</option><option value="A">Android</option>
+            <option value="I">iOS</option><option value="M">Mac</option><option value="E">others</option>
+        </select></td>
+    </tr>
+
+    <tr><td colspan="2" style="text-align:center;"><h4>data</h4></td></tr>
+
+    <!-- 빌키(삭제할 자동결제키, 평문 전송 / 암호화 대상 아님) -->
+    <tr class="required">
+        <td>billKey[빌키]</td><td><input type="text" name="billKey" value="SBILL_0123456789" maxlength="50"/></td>
+    </tr>
+
+    <!-- 해지사유코드(선택) -->
+    <tr>
+        <td>etcInfo[해지사유코드]</td><td><input type="text" name="etcInfo" value="" maxlength="100"/></td>
+    </tr>
+
+    <tr>
+        <td colspan="2" style="text-align:center;"><input style="margin-top:20px;" type="button" value="빌키 삭제 요청" onclick="doAction()"/></td>
+    </tr>
+    </table>
+</form>
+</body>
+</html>

@@ -128,4 +128,80 @@ router.post('/billkey_payResult', async (req, res) => {
     res.render('billkey_pay_showResult', { respParam: respParam });
 });
 
+/* ============================================================================================
+ *  신용카드 빌키 삭제(해지) 요청 폼
+ *  ============================================================================================ */
+router.get('/delKey_form', (req, res) => {
+    res.render('delKey_form', {
+        SERVICE_BASE_URL: config.SERVICE_BASE_URL
+    });
+});
+
+/* ============================================================================================
+ *  신용카드 빌키 삭제(해지) 요청 및 결과 화면
+ *  - 발급받은 billKey를 삭제(해지)합니다. 고객이 정기결제를 해지하면 빌키도 함께 삭제하십시오.
+ *  - 호출 경로: /spay/APICardActionDelkey.do (게이트웨이, JSON)
+ *  - 업무구분(bizType=A1)은 빌키 삭제 고정값이며, billKey는 평문 전송(암호화 대상 아님)입니다.
+ *  ============================================================================================ */
+router.post('/delKey_Result', async (req, res) => {
+    //설정 정보 가져오기
+    const aesKey = config.AES256_KEY;           //AES256 암복호화 키(빌키 삭제는 암복호화 대상 없음)
+    const licenseKey = config.LICENSE_KEY;      //라이센스 키
+    const apiHost = config.CANCEL_SERVER;       //게이트웨이(API) 서버 = 취소/빌키 공통 호스트(tbgw/gw)
+    const connTimeout = config.CONN_TIMEOUT;    //connect timeout
+    const readTimeout = config.READ_TIMEOUT;    //read timeout
+
+    //요청 파라미터(헤더)
+    const REQ_HEADER = {
+        mchtId: param(req, 'mchtId'),           //상점아이디
+        ver: param(req, 'ver'),                 //버전
+        method: param(req, 'method'),           //결제수단(CA)
+        bizType: param(req, 'bizType'),         //업무구분(A1:빌키 삭제)
+        encCd: param(req, 'encCd'),             //암호화구분
+        mchtTrdNo: param(req, 'mchtTrdNo'),     //상점주문번호
+        trdDt: param(req, 'trdDt'),             //요청일자
+        trdTm: param(req, 'trdTm'),             //요청시간
+        mobileYn: param(req, 'mobileYn'),       //모바일여부
+        osType: param(req, 'osType')            //운영체제구분
+    };
+
+    //요청 파라미터(바디) - 빌키(평문 전송, 암호화 대상 아님) + 해지사유코드(선택)
+    const REQ_BODY = {
+        billKey: param(req, 'billKey'),         //삭제할 빌키
+        etcInfo: param(req, 'etcInfo')          //해지사유코드(선택)
+    };
+
+    //응답 파라미터(바디)
+    const RES_BODY = [
+        'pktHash',  //해쉬값
+        'billKey'   //삭제된 빌키
+    ];
+
+    /* ======================================================================================================================
+     *                          SHA256 해쉬 처리
+     *          조합필드 : 요청일자 + 요청시간 + 상점아이디 + 상점주문번호 + "0" + 라이센스키
+     *          ※ 빌키 삭제는 금액이 없으므로 금액 자리에 반드시 "0"(문자)을 사용합니다.
+     *  ====================================================================================================================== */
+    setHash(REQ_BODY, REQ_HEADER.trdDt + REQ_HEADER.trdTm + REQ_HEADER.mchtId + REQ_HEADER.mchtTrdNo + '0' + licenseKey,
+        REQ_HEADER.mchtTrdNo, logger);
+
+    /* ======================================================================
+     *      API호출(가맹점->헥토파이낸셜) -> 응답 파싱
+     *      (빌키 삭제는 AES256 암·복호화 대상이 없습니다.)
+     *  ====================================================================== */
+    const respParam = await callApi({
+        header: REQ_HEADER,
+        body: REQ_BODY,
+        requestUrl: apiHost + '/spay/APICardActionDelkey.do', //신용카드 빌키 삭제 URL
+        aesKey: aesKey,
+        encryptKeys: [],
+        decryptKeys: [],
+        resBodyKeys: RES_BODY,
+        connTimeout: connTimeout,
+        readTimeout: readTimeout
+    });
+
+    res.render('delKey_showResult', { respParam: respParam });
+});
+
 module.exports = router;

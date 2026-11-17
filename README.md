@@ -58,6 +58,7 @@ PORT=8081 npm start
 | 결제 샘플 | http://localhost:8080/pay_form |
 | 신용카드 0원 등록(빌키발급) | http://localhost:8080/cardReg_form |
 | 신용카드 빌키 결제(2회차) | http://localhost:8080/billkey_pay_form |
+| 신용카드 빌키 삭제 | http://localhost:8080/delKey_form |
 | 취소 샘플 | http://localhost:8080/cancel_form |
 | 노티 수신 | http://localhost:8080/receiveNoti |
 
@@ -122,6 +123,8 @@ var msg = "<%- escapeJs(respParam.outRsltMsg) %>";
        cardReg_form.ejs			<--- 신용카드 0원 등록(빌키발급) 결제창 호출 폼
        billkey_pay_form.ejs		<--- 신용카드 빌키 결제(2회차) 요청 폼
        billkey_pay_showResult.ejs	<--- 신용카드 빌키 결제 결과 화면
+       delKey_form.ejs			<--- 신용카드 빌키 삭제 요청 폼
+       delKey_showResult.ejs		<--- 신용카드 빌키 삭제 결과 화면
        cancel_form.ejs			<--- 취소 메인 폼
        cancel_showResult.ejs		<--- 취소 결과 화면
 ```
@@ -148,6 +151,8 @@ var msg = "<%- escapeJs(respParam.outRsltMsg) %>";
 - **`GET /cardReg_form`**: 신용카드 **0원 등록(빌키발급) 결제창**을 호출하는 Form 화면입니다. 실제 결제(승인) 없이 0원 인증으로 카드를 등록하고 정기결제용 빌키(`billKey`)를 발급받습니다. SDK의 `method="card"` + `methodSub="auth"` 조합으로 빌키발급창(`/card/cardAuth.do`)을 띄우며, `POST /pay_encryptParams`와 `ALL /pay_receiveResult`를 재사용합니다.
 - **`GET /billkey_pay_form`**: 발급받은 빌키로 2회차 결제를 요청하는 Form 화면입니다. 결제수단(`method=CA`), 업무구분(`bizType=B0`)은 신용카드 빌키 결제 고정값입니다.
 - **`POST /billkey_payResult`**: 게이트웨이(`/spay/APICardActionPay.do`)와 Server to Server(JSON) 통신으로 빌키 결제를 요청하고 결과를 출력합니다. 빌키 결제 전용이며 카드번호 직접 입력(수기결제)은 지원하지 않습니다.
+- **`GET /delKey_form`**: 발급받은 빌키를 삭제(해지)하는 Form 화면입니다. 업무구분(`bizType=A1`)은 빌키 삭제 고정값입니다.
+- **`POST /delKey_Result`**: 게이트웨이(`/spay/APICardActionDelkey.do`)와 Server to Server(JSON) 통신으로 빌키 삭제를 요청하고 결과를 출력합니다. 금액이 없으므로 해시 조합의 금액 자리에 `"0"`을 사용하며, 빌키(`billKey`)는 평문으로 전송(암호화 대상 아님)합니다.
 
 > **신용카드 빌키 발급 정책**: 신용카드 빌키는 **UI 결제창(0원 등록)** 방식을 표준으로 제공합니다(`/cardReg_form`). 가맹점이 카드번호를 직접 수집해 API로 빌키를 발급하는 방식(비/구인증 수기)은 표준 제공 범위에 포함되지 않으며, 필요한 경우 영업 담당자 또는 기술지원(pgsupport@hecto.co.kr)을 통해 별도 제공됩니다.
 
@@ -164,6 +169,7 @@ var msg = "<%- escapeJs(respParam.outRsltMsg) %>";
 - **간편 정기결제 빌키 상태조회/삭제**: `/pay_form` → `/pay_subsManageResult`
 - **신용카드 0원 등록(빌키발급)**: `/cardReg_form` → `/pay_encryptParams` → (빌키발급 결제창) → `/pay_receiveResult`(응답의 billKey 보관)
 - **신용카드 빌키 결제(2회차)**: `/billkey_pay_form` → `/billkey_payResult`
+- **신용카드 빌키 삭제**: `/delKey_form` → `/delKey_Result`
 - **취소 처리 순서**: `/cancel_form` → `/cancel_showResult`
 - **노티 처리 순서**: `/receiveNoti` → process-noti.js
 
